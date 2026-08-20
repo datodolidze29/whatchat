@@ -29,7 +29,7 @@ function requireAuth(TokenRepository $tokens): int
 
 // --- connect to the db. Database::connect() just throws; the HTTP response is decided here ---
 try {
-    $pdo = new Database()->connect();
+    $pdo = (new Database())->connect();
 } catch (\PDOException $e) {
     error_log($e->getMessage());
     http_response_code(503); // service unavailable

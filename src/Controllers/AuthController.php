@@ -44,7 +44,7 @@ class AuthController extends Controller // extends Controller so I get json() fo
         }
 
         $token = bin2hex(random_bytes(32)); // random_bytes = cryptographically secure (unguessable). 32 bytes -> 64 hex chars
-        $expiresAt = new \DateTime("+30 days")->format("Y-m-d H:i:s"); // token good for 30 days, formatted for mysql DATETIME
+        $expiresAt = (new \DateTime("+30 days"))->format("Y-m-d H:i:s"); // token good for 30 days, formatted for mysql DATETIME
         $this->tokens->create($user["id"], $token, $expiresAt); // save the token so future requests can be checked
 
         $this->json(200, [
