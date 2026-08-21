@@ -12,7 +12,7 @@ use App\Repositories\ConversationRepository;
 use App\Controllers\ConversationController;
 use App\Repositories\MessageRepository;
 use App\Controllers\MessageController;
-
+use App\FileStorage;
 // helper (lives in the HTTP layer, not in Auth): returns the logged-in user id, or sends 401 + STOPS the request.
 // exit() (not return) so if this line passes, the code after it KNOWS you're authenticated.
 function requireAuth(TokenRepository $tokens): int
@@ -29,7 +29,7 @@ function requireAuth(TokenRepository $tokens): int
 
 // --- connect to the db. Database::connect() just throws; the HTTP response is decided here ---
 try {
-    $pdo = (new Database())->connect();
+    $pdo = new Database()->connect();
 } catch (\PDOException $e) {
     error_log($e->getMessage());
     http_response_code(503); // service unavailable
@@ -45,7 +45,8 @@ $authController = new AuthController($userRepository, $tokenRepository);
 $conversationRepository = new ConversationRepository($pdo);
 $conversationController = new ConversationController($conversationRepository);
 $messageRepository = new MessageRepository($pdo);
-$messageController = new MessageController($messageRepository, $conversationRepository);
+$fileStorage = new FileStorage(__DIR__ . "/uploads");
+$messageController = new MessageController($messageRepository, $conversationRepository, $fileStorage);
 
 // --- routing ---
 $method = $_SERVER["REQUEST_METHOD"];
@@ -84,6 +85,11 @@ if ($method === "POST" && $path === "/register") {
     $userId = requireAuth($tokenRepository);
     $conversationId = (int) $matches[1];
     $conversationController->markRead($userId, $conversationId);
+    return;
+} elseif ($method === "POST" && preg_match("#^/conversations/(\d+)/messages/image$#", $path, $matches)) {
+    $userId = requireAuth($tokenRepository);
+    $conversationId = (int) $matches[1];
+    $messageController->uploadImage($userId, $conversationId);
     return;
 } else {
     http_response_code(404);

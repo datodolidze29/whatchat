@@ -4,16 +4,22 @@ namespace App\Controllers;
 
 use App\Repositories\MessageRepository;
 use App\Repositories\ConversationRepository;
+use App\FileStorage;
 
 class MessageController extends Controller
 {
     private MessageRepository $messages;
     private ConversationRepository $conversations;
+    private FileStorage $storage;
 
-    public function __construct(MessageRepository $messages, ConversationRepository $conversations)
-    {
+    public function __construct(
+        MessageRepository $messages,
+        ConversationRepository $conversations,
+        FileStorage $storage,
+    ) {
         $this->messages = $messages;
         $this->conversations = $conversations;
+        $this->storage = $storage;
     }
 
     // $userId from token, $conversationId from the URL
@@ -63,5 +69,26 @@ class MessageController extends Controller
         // 4. fetch + return
         $messages = $this->messages->findForConversation($conversationId, $beforeId, $limit);
         $this->json(200, ["messages" => $messages]);
+    }
+
+    public function uploadImage(int $userId, int $conversationId): void
+    {
+        if (!$this->conversations->isParticipant($userId, $conversationId)) {
+            $this->json(403, ["error" => "forbidden"]);
+            return;
+        }
+        if (!isset($_FILES["image"])) {
+            $this->json(400, ["error" => "no image uploaded"]);
+            return;
+        }
+        try {
+            $path = $this->storage->storeImage($_FILES["image"]); // returns the stored relative path, or throws
+        } catch (\RuntimeException $r) {
+            $this->json(400, ["error" => $r->getMessage()]); // getMessage() -> safe string, not the whole object
+            return;
+        }
+        $caption = $_POST["content"] ?? null; // multipart field, from $_POST (NOT json body)
+        $messageId = $this->messages->create($conversationId, $userId, $caption, "image", $path);
+        $this->json(201, ["success" => true, "message_id" => $messageId, "file_path" => $path]);
     }
 }
